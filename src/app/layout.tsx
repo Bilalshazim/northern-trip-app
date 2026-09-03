@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { TripProvider } from "@/lib/TripContext";
 import { BottomNav } from "@/components/BottomNav";
+import { PinGate } from "@/components/PinGate";
 
 export const metadata: Metadata = {
   title: "Northern Trip",
@@ -29,10 +30,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full bg-slate-950 flex flex-col">
         <div className="mx-auto flex min-h-screen w-full max-w-[390px] flex-col bg-slate-950 relative overflow-x-hidden">
           <TripProvider>
-            <div className="flex-1 pt-[env(safe-area-inset-top)] pb-[calc(64px+env(safe-area-inset-bottom))]">
-              {children}
-            </div>
-            <BottomNav />
+            <PinGate>
+              <div className="flex-1 pt-[env(safe-area-inset-top)] pb-[calc(64px+env(safe-area-inset-bottom))]">
+                {children}
+              </div>
+              <BottomNav />
+            </PinGate>
           </TripProvider>
         </div>
       </body>

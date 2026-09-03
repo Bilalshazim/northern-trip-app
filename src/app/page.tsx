@@ -144,6 +144,10 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      <p className="mt-8 pb-2 text-center text-[10px] font-medium uppercase tracking-widest text-slate-600">
+        Powered by DevMatrix
+      </p>
     </div>
   );
 }
