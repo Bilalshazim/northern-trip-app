@@ -21,6 +21,14 @@ export type FoodTag = "Breakfast" | "Lunch" | "Dinner" | "Tea";
 
 export const FOOD_TAGS: FoodTag[] = ["Breakfast", "Lunch", "Dinner", "Tea"];
 
+export type PaymentMode = "Cash" | "Bank Transfer";
+
+export const PAYMENT_MODES: PaymentMode[] = ["Cash", "Bank Transfer"];
+
+export type ReferenceType = "Advance" | "Remaining";
+
+export const REFERENCE_TYPES: ReferenceType[] = ["Advance", "Remaining"];
+
 export interface Expense {
   id: string;
   category: ExpenseCategory;
@@ -28,6 +36,8 @@ export interface Expense {
   amount: number;
   description?: string;
   date: string; // ISO date string
+  paymentMode: PaymentMode;
+  reference: ReferenceType;
   createdAt: number;
 }
 
@@ -36,5 +46,7 @@ export interface Person {
   name: string;
   amount: number;
   date: string;
+  paymentMode: PaymentMode;
+  reference: ReferenceType;
   createdAt: number;
 }

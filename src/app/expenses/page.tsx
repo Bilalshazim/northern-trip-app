@@ -1,9 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Receipt, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Pencil, Receipt, ChevronDown, X } from "lucide-react";
 import { useTrip } from "@/lib/TripContext";
-import { EXPENSE_CATEGORIES, ExpenseCategory, FOOD_TAGS, FoodTag } from "@/types/trip";
+import {
+  EXPENSE_CATEGORIES,
+  ExpenseCategory,
+  FOOD_TAGS,
+  FoodTag,
+  PAYMENT_MODES,
+  PaymentMode,
+  REFERENCE_TYPES,
+  ReferenceType,
+  Expense,
+} from "@/types/trip";
 import { formatCurrency, formatDate, todayISO } from "@/lib/format";
 
 const CATEGORY_STYLES: Record<ExpenseCategory, string> = {
@@ -16,39 +26,88 @@ const CATEGORY_STYLES: Record<ExpenseCategory, string> = {
   Miscellaneous: "bg-cyan-500/15 text-cyan-300 border-cyan-400/30",
 };
 
-export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense, totalExpenses } = useTrip();
+const REFERENCE_STYLES: Record<ReferenceType, string> = {
+  Advance: "bg-violet-500/15 text-violet-300 border-violet-400/30",
+  Remaining: "bg-teal-500/15 text-teal-300 border-teal-400/30",
+};
 
-  const [category, setCategory] = useState<ExpenseCategory>("Bus Tickets");
-  const [foodTag, setFoodTag] = useState<FoodTag>("Breakfast");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState(todayISO());
+function emptyForm() {
+  return {
+    category: "Bus Tickets" as ExpenseCategory,
+    foodTag: "Breakfast" as FoodTag,
+    amount: "",
+    description: "",
+    date: todayISO(),
+    paymentMode: "Cash" as PaymentMode,
+    reference: "Remaining" as ReferenceType,
+  };
+}
+
+export default function ExpensesPage() {
+  const { expenses, addExpense, updateExpense, deleteExpense, totalExpenses } = useTrip();
+
+  const [form, setForm] = useState(emptyForm());
   const [filter, setFilter] = useState<"All" | ExpenseCategory>("All");
   const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const filteredExpenses = useMemo(() => {
     if (filter === "All") return expenses;
     return expenses.filter((e) => e.category === filter);
   }, [expenses, filter]);
 
+  const openForCreate = () => {
+    if (formOpen && editingId === null) {
+      setFormOpen(false);
+      return;
+    }
+    setEditingId(null);
+    setForm(emptyForm());
+    setFormOpen(true);
+  };
+
+  const openForEdit = (expense: Expense) => {
+    setEditingId(expense.id);
+    setForm({
+      category: expense.category,
+      foodTag: expense.foodTag ?? "Breakfast",
+      amount: String(expense.amount),
+      description: expense.description ?? "",
+      date: expense.date,
+      paymentMode: expense.paymentMode,
+      reference: expense.reference,
+    });
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditingId(null);
+    setForm(emptyForm());
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const numericAmount = parseFloat(amount);
+    const numericAmount = parseFloat(form.amount);
     if (!numericAmount || numericAmount <= 0) return;
 
-    addExpense({
-      category,
-      foodTag: category === "Food" ? foodTag : undefined,
+    const payload = {
+      category: form.category,
+      foodTag: form.category === "Food" ? form.foodTag : undefined,
       amount: numericAmount,
-      description: description.trim() || undefined,
-      date,
-    });
+      description: form.description.trim() || undefined,
+      date: form.date,
+      paymentMode: form.paymentMode,
+      reference: form.reference,
+    };
 
-    setAmount("");
-    setDescription("");
-    setDate(todayISO());
-    setFormOpen(false);
+    if (editingId) {
+      updateExpense(editingId, payload);
+    } else {
+      addExpense(payload);
+    }
+
+    closeForm();
   };
 
   return (
@@ -61,10 +120,14 @@ export default function ExpensesPage() {
           </p>
         </div>
         <button
-          onClick={() => setFormOpen((v) => !v)}
+          onClick={openForCreate}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 shadow-lg shadow-amber-500/30 active:scale-95 transition-transform"
         >
-          <Plus size={20} strokeWidth={2.5} className={formOpen ? "rotate-45 transition-transform" : "transition-transform"} />
+          {formOpen && editingId === null ? (
+            <X size={20} strokeWidth={2.5} />
+          ) : (
+            <Plus size={20} strokeWidth={2.5} />
+          )}
         </button>
       </div>
 
@@ -73,12 +136,29 @@ export default function ExpensesPage() {
           onSubmit={handleSubmit}
           className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4"
         >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-amber-300/80">
+              {editingId ? "Edit Expense" : "New Expense"}
+            </span>
+            {editingId && (
+              <button
+                type="button"
+                onClick={closeForm}
+                className="text-[11px] font-medium text-slate-400"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-400">Category</label>
             <div className="relative">
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                value={form.category}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, category: e.target.value as ExpenseCategory }))
+                }
                 className="w-full appearance-none rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-400/50 focus:outline-none"
               >
                 {EXPENSE_CATEGORIES.map((c) => (
@@ -91,7 +171,7 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          {category === "Food" && (
+          {form.category === "Food" && (
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-400">Meal</label>
               <div className="flex flex-wrap gap-2">
@@ -99,9 +179,9 @@ export default function ExpensesPage() {
                   <button
                     type="button"
                     key={tag}
-                    onClick={() => setFoodTag(tag)}
+                    onClick={() => setForm((f) => ({ ...f, foodTag: tag }))}
                     className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      foodTag === tag
+                      form.foodTag === tag
                         ? "border-orange-400/60 bg-orange-500/20 text-orange-300"
                         : "border-white/10 bg-white/[0.03] text-slate-400"
                     }`}
@@ -120,8 +200,8 @@ export default function ExpensesPage() {
               inputMode="decimal"
               min="0"
               step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               placeholder="0.00"
               required
               className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-amber-400/50 focus:outline-none"
@@ -134,8 +214,8 @@ export default function ExpensesPage() {
             </label>
             <input
               type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="e.g. Hunza Serena stay"
               className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-amber-400/50 focus:outline-none"
             />
@@ -145,17 +225,58 @@ export default function ExpensesPage() {
             <label className="mb-1.5 block text-xs font-medium text-slate-400">Date</label>
             <input
               type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
+              value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
               className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-400/50 focus:outline-none [color-scheme:dark]"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-400">Payment Mode</label>
+              <div className="flex flex-col gap-1.5">
+                {PAYMENT_MODES.map((mode) => (
+                  <button
+                    type="button"
+                    key={mode}
+                    onClick={() => setForm((f) => ({ ...f, paymentMode: mode }))}
+                    className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      form.paymentMode === mode
+                        ? "border-amber-400/60 bg-amber-500/20 text-amber-300"
+                        : "border-white/10 bg-white/[0.03] text-slate-400"
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-400">Reference</label>
+              <div className="flex flex-col gap-1.5">
+                {REFERENCE_TYPES.map((ref) => (
+                  <button
+                    type="button"
+                    key={ref}
+                    onClick={() => setForm((f) => ({ ...f, reference: ref }))}
+                    className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      form.reference === ref
+                        ? "border-violet-400/60 bg-violet-500/20 text-violet-300"
+                        : "border-white/10 bg-white/[0.03] text-slate-400"
+                    }`}
+                  >
+                    {ref}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <button
             type="submit"
             className="mt-1 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform"
           >
-            Add Expense
+            {editingId ? "Save Changes" : "Add Expense"}
           </button>
         </form>
       )}
@@ -191,11 +312,19 @@ export default function ExpensesPage() {
               className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-3.5 py-3"
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span
                     className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${CATEGORY_STYLES[e.category]}`}
                   >
                     {e.category === "Food" && e.foodTag ? `${e.category} · ${e.foodTag}` : e.category}
+                  </span>
+                  <span className="rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+                    {e.paymentMode}
+                  </span>
+                  <span
+                    className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${REFERENCE_STYLES[e.reference]}`}
+                  >
+                    {e.reference}
                   </span>
                 </div>
                 <p className="mt-1 truncate text-sm text-slate-200">
@@ -203,17 +332,26 @@ export default function ExpensesPage() {
                 </p>
                 <p className="text-[11px] text-slate-500">{formatDate(e.date)}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-3 pl-2">
+              <div className="flex shrink-0 flex-col items-end gap-1.5 pl-2">
                 <span className="text-sm font-semibold text-amber-400">
                   {formatCurrency(e.amount)}
                 </span>
-                <button
-                  onClick={() => deleteExpense(e.id)}
-                  aria-label="Delete expense"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 active:scale-90 transition-transform"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openForEdit(e)}
+                    aria-label="Edit expense"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/10 text-sky-400 active:scale-90 transition-transform"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => deleteExpense(e.id)}
+                    aria-label="Delete expense"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 active:scale-90 transition-transform"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ))

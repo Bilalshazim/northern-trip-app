@@ -23,12 +23,32 @@ function loadFromStorage<T>(key: string): T[] {
   }
 }
 
+// Entries saved before the payment-mode/reference fields existed won't have
+// them in localStorage — backfill sensible defaults so old data still renders.
+function withDefaults(expense: Partial<Expense> & Omit<Expense, "paymentMode" | "reference">): Expense {
+  return {
+    ...expense,
+    paymentMode: expense.paymentMode ?? "Cash",
+    reference: expense.reference ?? "Remaining",
+  };
+}
+
+function withPersonDefaults(person: Partial<Person> & Omit<Person, "paymentMode" | "reference">): Person {
+  return {
+    ...person,
+    paymentMode: person.paymentMode ?? "Cash",
+    reference: person.reference ?? "Advance",
+  };
+}
+
 interface TripContextValue {
   expenses: Expense[];
   people: Person[];
   addExpense: (expense: Omit<Expense, "id" | "createdAt">) => void;
+  updateExpense: (id: string, expense: Omit<Expense, "id" | "createdAt">) => void;
   deleteExpense: (id: string) => void;
   addPerson: (person: Omit<Person, "id" | "createdAt">) => void;
+  updatePerson: (id: string, person: Omit<Person, "id" | "createdAt">) => void;
   deletePerson: (id: string) => void;
   totalCollected: number;
   totalExpenses: number;
@@ -47,8 +67,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
     // One-time hydration from localStorage after mount (browser-only API,
     // deliberately deferred to avoid an SSR/client markup mismatch).
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setExpenses(loadFromStorage<Expense>(EXPENSES_KEY));
-    setPeople(loadFromStorage<Person>(COLLECTIONS_KEY));
+    setExpenses(loadFromStorage<Expense>(EXPENSES_KEY).map(withDefaults));
+    setPeople(loadFromStorage<Person>(COLLECTIONS_KEY).map(withPersonDefaults));
     setIsLoaded(true);
   }, []);
 
@@ -71,6 +91,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
     setExpenses((prev) => [newExpense, ...prev]);
   };
 
+  const updateExpense = (id: string, expense: Omit<Expense, "id" | "createdAt">) => {
+    setExpenses((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...expense } : e))
+    );
+  };
+
   const deleteExpense = (id: string) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
@@ -82,6 +108,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
       createdAt: Date.now(),
     };
     setPeople((prev) => [newPerson, ...prev]);
+  };
+
+  const updatePerson = (id: string, person: Omit<Person, "id" | "createdAt">) => {
+    setPeople((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...person } : p))
+    );
   };
 
   const deletePerson = (id: string) => {
@@ -104,8 +136,10 @@ export function TripProvider({ children }: { children: ReactNode }) {
     expenses,
     people,
     addExpense,
+    updateExpense,
     deleteExpense,
     addPerson,
+    updatePerson,
     deletePerson,
     totalCollected,
     totalExpenses,
